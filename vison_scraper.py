@@ -9,9 +9,11 @@ load_dotenv()
 model = OpenAI()
 model.timeout = 30
 
+
 def image_b64(image):
     with open(image, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
 
 def url2screenshot(url):
     print(f"Crawling {url}")
@@ -31,9 +33,10 @@ def url2screenshot(url):
     if not os.path.exists("screenshot.jpg"):
         print("ERROR")
         return "Failed to scrape the website"
-    
+
     b64_image = image_b64("screenshot.jpg")
     return b64_image
+
 
 def visionExtract(b64_image, prompt):
     response = model.chat.completions.create(
@@ -71,15 +74,17 @@ def visionExtract(b64_image, prompt):
         print(f"GPT: {message_text}")
         return message_text
 
+
 def visionCrawl(url, prompt):
     b64_image = url2screenshot(url)
 
     print("Image captured")
-    
+
     if b64_image == "Failed to scrape the website":
         return "I was unable to crawl that site. Please pick a different one."
     else:
         return visionExtract(b64_image, prompt)
+
 
 response = visionCrawl("https://relevanceai.com/pricing", "Extract the pricing info")
 print(response)

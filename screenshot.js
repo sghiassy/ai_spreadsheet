@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-const url = process.argv[2] || "https://github.com/sghiassy";
+const url = process.argv[2] || "https://www.linkedin.com/in/shaheenghiassy/";
 const timeout = 5000;
 
 (async () => {
@@ -32,5 +32,5 @@ const timeout = 5000;
         fullPage: true,
     });
 
-    // await browser.close();
+    await browser.close();
 })();

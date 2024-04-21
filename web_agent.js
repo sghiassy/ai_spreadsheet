@@ -135,11 +135,15 @@ async function waitForEvent(page, event) {
     console.log( "# GPT4V-Browsing by Unconventional Coding #" );
     console.log( "###########################################\n" );
 
-    const browser = await puppeteer.launch( {
-        headless: "false",
-        executablePath: '/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary',
-        userDataDir: '/Users/jasonzhou/Library/Application\ Support/Google/Chrome\ Canary/Default',
-    } );
+    // const browser = await puppeteer.launch( {
+    //     headless: "false",
+    //     executablePath: '/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary',
+    //     userDataDir: '/Users/sghiassy/Library/Application\ Support/Google/Chrome\ Canary/Default',
+    // } );
+    const browser = await puppeteer.connect({
+      browserURL: "http://localhost:9222",
+      defaultViewport: null,
+    });
 
     const page = await browser.newPage();
 
@@ -242,33 +246,33 @@ async function waitForEvent(page, event) {
             let parts = message_text.split('{"click": "');
             parts = parts[1].split('"}');
             const link_text = parts[0].replace(/[^a-zA-Z0-9 ]/g, '');
-        
+
             console.log("Clicking on " + link_text)
-        
+
             try {
                 const elements = await page.$$('[gpt-link-text]');
-        
+
                 let partial;
                 let exact;
-        
+
                 for (const element of elements) {
                     const attributeValue = await element.evaluate(el => el.getAttribute('gpt-link-text'));
-        
+
                     if (attributeValue.includes(link_text)) {
                         partial = element;
                     }
-        
+
                     if (attributeValue === link_text) {
                         exact = element;
                     }
                 }
-        
+
                 if (exact || partial) {
                     const [response] = await Promise.all([
                         page.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(e => console.log("Navigation timeout/error:", e.message)),
                         (exact || partial).click()
                     ]);
-        
+
                     // Additional checks can be done here, like validating the response or URL
                     await Promise.race( [
                         waitForEvent(page, 'load'),
@@ -276,32 +280,32 @@ async function waitForEvent(page, event) {
                     ] );
 
                     await highlight_links(page);
-        
+
                     await page.screenshot({
                         path: "screenshot.jpg",
                         quality: 100,
                         fullpage: true
                     });
-        
+
                     screenshot_taken = true;
                 } else {
                     throw new Error("Can't find link");
                 }
             } catch (error) {
                 console.log("ERROR: Clicking failed", error);
-        
+
                 messages.push({
                     "role": "user",
                     "content": "ERROR: I was unable to click that element",
                 });
             }
-        
+
             continue;
         } else if (message_text.indexOf('{"url": "') !== -1) {
             let parts = message_text.split('{"url": "');
             parts = parts[1].split('"}');
             url = parts[0];
-        
+
             continue;
         }
 

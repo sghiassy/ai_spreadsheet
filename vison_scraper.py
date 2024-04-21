@@ -31,7 +31,7 @@ def url2screenshot(url):
     output = result.stdout
 
     if not os.path.exists("screenshot.jpg"):
-        print("ERROR")
+        print("ERROR1")
         return "Failed to scrape the website"
 
     b64_image = image_b64("screenshot.jpg")
@@ -68,7 +68,7 @@ def visionExtract(b64_image, prompt):
     message_text = message.content
 
     if "ANSWER_NOT_FOUND" in message_text:
-        print("ERROR: Answer not found")
+        print("ERROR2: Answer not found")
         return "I was unable to find the answer on that website. Please pick another one"
     else:
         print(f"GPT: {message_text}")
@@ -86,5 +86,7 @@ def visionCrawl(url, prompt):
         return visionExtract(b64_image, prompt)
 
 
-response = visionCrawl("https://relevanceai.com/pricing", "Extract the pricing info")
+response = visionCrawl(
+    "https://www.linkedin.com/in/shaheenghiassy/", "Extract the user's work experience"
+)
 print(response)

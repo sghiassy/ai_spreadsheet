@@ -131,10 +131,6 @@ async function waitForEvent(page, event) {
 }
 
 (async () => {
-    console.log( "###########################################" );
-    console.log( "# GPT4V-Browsing by Unconventional Coding #" );
-    console.log( "###########################################\n" );
-
     // const browser = await puppeteer.launch( {
     //     headless: "false",
     //     executablePath: '/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary',

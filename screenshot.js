@@ -2,7 +2,9 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-const url = process.argv[2] || "https://www.linkedin.com/in/shaheenghiassy/";
+const url =
+  process.argv[2] ||
+  "https://docs.google.com/spreadsheets/d/1j33HzZx4SyhOudVbFBc5Uo1d5VKwvHAjCIw60fQmIjU/edit?usp=sharing";
 const timeout = 5000;
 
 (async () => {

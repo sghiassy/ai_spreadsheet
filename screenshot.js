@@ -2,15 +2,15 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-const url = process.argv[2];
+const url = process.argv[2] || "https://github.com/sghiassy";
 const timeout = 5000;
 
 (async () => {
-    const browser = await puppeteer.launch( {
-        headless: "false",
-        executablePath: '/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary',
-        userDataDir: '/Users/jasonzhou/Library/Application\ Support/Google/Chrome\ Canary/Default',
-    } );
+
+    const browser = await puppeteer.connect({
+      browserURL: "http://localhost:9222",
+      defaultViewport: null,
+    });
 
     const page = await browser.newPage();
 
@@ -32,5 +32,5 @@ const timeout = 5000;
         fullPage: true,
     });
 
-    await browser.close();
+    // await browser.close();
 })();

@@ -44,9 +44,11 @@ def get_note(service):
     # Get the notes (comments) from the cell
     cell_data = response['sheets'][0]['data'][0]['rowData'][0]['values'][0]
     if 'note' in cell_data:
-        print(cell_data['note'])
+        # print(cell_data['note'])
+        return cell_data['note']
     else:
-        print('No comments in cell D7')
+        return ''
+        # print('No comments in cell D7')
 
 
 def main():
@@ -73,7 +75,7 @@ def main():
     try:
         service = build("sheets", "v4", credentials=creds)
         increment_cell(service)
-        get_note(service)
+        note = get_note(service)
 
     except HttpError as err:
         print(err)

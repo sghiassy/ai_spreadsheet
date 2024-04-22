@@ -83,7 +83,7 @@ def visionExtract2(b64_image, prompt):
     system_prompt = """
     You a web scraper, your job is to extract information based on a screenshot of a website & user's instruction
 
-    Respond only with JSON. The JSON should be in the format:
+    Respond only with JSON. Do not include backticks (example ```json). The JSON should be in the format:
 
     {"value":<insert the answer to the user's question. Value should work with python's `int()` function>, "comment":<insert any comments you have per the user's question as text here>"}
 

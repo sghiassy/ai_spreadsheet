@@ -10,8 +10,43 @@ from googleapiclient.errors import HttpError
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # The ID and range of a sample spreadsheet.
-SAMPLE_SPREADSHEET_ID = "18_0zVG1l3-HIhPwvSuONZxqwrjOCRN2JYhiiByi06_s"
-SAMPLE_RANGE_NAME = "Class Data!A2:E"
+SPREADSHEET_ID = "18_0zVG1l3-HIhPwvSuONZxqwrjOCRN2JYhiiByi06_s"
+RANGE = "Sheet1!D7"
+
+
+def increment_cell(service):
+    # Call the Sheets API
+    sheet = service.spreadsheets()
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE).execute()
+    values = result.get("values", [])
+
+    # Remove commas from the value
+    clean_value = values[0][0].replace(',', '') if values else '0'
+
+    # Increment the value by 1
+    new_value = int(clean_value) + 1
+
+    # Update cell D7 with the new value
+    body = {
+        'values': [[new_value]]
+    }
+    result = service.spreadsheets().values().update(
+        spreadsheetId=SPREADSHEET_ID, range=RANGE,
+        valueInputOption="USER_ENTERED", body=body).execute()
+
+
+def get_note(service):
+    request = service.spreadsheets().get(
+        spreadsheetId=SPREADSHEET_ID, ranges=RANGE, includeGridData=True
+    )
+    response = request.execute()
+
+    # Get the notes (comments) from the cell
+    cell_data = response['sheets'][0]['data'][0]['rowData'][0]['values'][0]
+    if 'note' in cell_data:
+        print(cell_data['note'])
+    else:
+        print('No comments in cell D7')
 
 
 def main():
@@ -37,25 +72,9 @@ def main():
 
     try:
         service = build("sheets", "v4", credentials=creds)
+        increment_cell(service)
+        get_note(service)
 
-        # Call the Sheets API
-        sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range="Sheet1!D7").execute()
-        values = result.get("values", [])
-
-        # Remove commas from the value
-        clean_value = values[0][0].replace(',', '') if values else '0'
-
-        # Increment the value by 1
-        new_value = int(clean_value) + 1
-
-        # Update cell D7 with the new value
-        body = {
-            'values': [[new_value]]
-        }
-        result = service.spreadsheets().values().update(
-            spreadsheetId=SAMPLE_SPREADSHEET_ID, range="Sheet1!D7",
-            valueInputOption="USER_ENTERED", body=body).execute()
     except HttpError as err:
         print(err)
 

@@ -86,7 +86,9 @@ def visionCrawl(url, prompt):
         return visionExtract(b64_image, prompt)
 
 
-response = visionCrawl(
-    "https://www.linkedin.com/in/shaheenghiassy/", "Extract the user's work experience"
-)
-print(response)
+if __name__ == "__main__":
+    response = visionCrawl(
+        "https://www.linkedin.com/in/shaheenghiassy/",
+        "Extract the user's work experience",
+    )
+    print(response)

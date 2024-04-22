@@ -103,7 +103,6 @@ def update_note(service, new_note, prev_note):
 
 
 def decipher_message(note):
-
     prompt = """
     You are a Google Sheets expert. A user will attach a note to a cell, and your job will be to extract two pieces of information from it 1.) Extract the url and 2.) The prompt.
 

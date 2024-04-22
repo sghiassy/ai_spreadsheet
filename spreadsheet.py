@@ -5,6 +5,14 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from openai import OpenAI
+from dotenv import load_dotenv
+import json
+
+load_dotenv()
+
+model = OpenAI()
+model.timeout = 30
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -51,6 +59,40 @@ def get_note(service):
         # print('No comments in cell D7')
 
 
+def decipher_message(note):
+
+    prompt = """
+    You are a Google Sheets expert. A user will attach a note to a cell, and your job will be to extract two pieces of information from it 1.) Extract the url and 2.) The prompt.
+
+    Respond only with JSON. The JSON should be in the format:
+
+    {"url":<insert url here>, "prompt":<the message with the url removed>}
+
+    Ensure that the JSON is valid json and will work with python's `json.loads` method
+"""
+
+    response = model.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": prompt,
+            },
+            {
+                "role": "user",
+                "content": note,
+            },
+        ],
+        max_tokens=1024,
+    )
+
+    message = response.choices[0].message
+    message_text = message.content
+    message_json = json.loads(message_text)
+    print(f"message_text {message_text}")
+    return message_json["url"], message_json['prompt']
+
+
 def main():
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
@@ -76,6 +118,10 @@ def main():
         service = build("sheets", "v4", credentials=creds)
         increment_cell(service)
         note = get_note(service)
+        url, prompt = decipher_message(note)
+        # value, response = scrape_web(url, prompt)
+
+
 
     except HttpError as err:
         print(err)

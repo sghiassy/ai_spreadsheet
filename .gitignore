@@ -2,6 +2,11 @@
 
 screenshot.jpg
 credentials.json
+credentials_v2.json
+oauth.json
+token.json
+storage.json
+token.bkp.json
 
 ################
 # Python

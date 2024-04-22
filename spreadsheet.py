@@ -15,9 +15,15 @@ load_dotenv()
 
 model = OpenAI()
 model.timeout = 30
+COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.activity.readonly",
+]
 
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = "18_0zVG1l3-HIhPwvSuONZxqwrjOCRN2JYhiiByi06_s"
@@ -182,6 +188,58 @@ def scrape_web(url, user_prompt):
     return message_json["value"], message_json["comment"]
 
 
+def get_comments(drive_service):
+    comments_data = (
+            drive_service.comments()
+            .get(fileId=SPREADSHEET_ID, commentId="AAABLNjT_20", fields=COMMENT_FIELDS)
+            .execute()
+        )
+    return comments_data
+
+
+def add_comment(drive_service):
+    """
+    Comments attached to cell: https://www.youtube.com/live/ZBU52nacbLw?si=MTud8YGjvy1WFKxG&t=325
+    """
+    reply = (
+            drive_service.replies()
+            .create(
+                fileId=SPREADSHEET_ID,
+                commentId="AAABLNjT_20",
+                body=dict(kind="drive#reply", content="I am the content"),
+                fields="id, content, modifiedTime",
+            )
+            .execute()
+        )
+    return reply
+
+
+def create_note(sheets_service):
+    body = {
+        "requests": [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": 0,  # this is the end bit of the url
+                        "startRowIndex": 0,
+                        "endRowIndex": 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": 1,
+                    },
+                    "cell": {"note": "Hey, I'm a comment!"},
+                    "fields": "note",
+                }
+            }
+        ]
+    }
+    result = (
+        sheets_service.spreadsheets()
+        .batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body)
+        .execute()
+    )
+    return result
+
+
 def main():
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
@@ -204,13 +262,15 @@ def main():
             token.write(creds.to_json())
 
     try:
-        service = build("sheets", "v4", credentials=creds)
-        increment_cell(service)
-        note = get_note(service)
+        drive_service = build("drive", "v3", credentials=creds)
+        sheets_service = build("sheets", "v4", credentials=creds)
+
+        increment_cell(sheets_service)
+        note = get_note(sheets_service)
         url, prompt = decipher_message(note)
         value, ai_comment = visionCrawl2(url, prompt)
-        update_cell(service, value)
-        update_note(service, ai_comment, note)
+        update_cell(sheets_service, value)
+        update_note(sheets_service, ai_comment, note)
 
         # value, comment = scrape_web(url, prompt)
         # print(f"value{value} comment{comment}")

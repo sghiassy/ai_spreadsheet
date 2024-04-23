@@ -21,7 +21,7 @@ load_dotenv()
 
 model = OpenAI()
 model.timeout = 30
-timeout = 12000
+timeout = 14000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
@@ -418,7 +418,7 @@ async def main():
 
                 await page.screenshot({
                     'path': 'screenshot.jpg',
-                    'fullPage': True,
+                    'fullPage': False,
                 })
 
                 screenshot_taken = True
@@ -490,8 +490,8 @@ async def main():
                         navigation_task = asyncio.create_task(page.waitForNavigation(waitUntil='domcontentloaded'))
                         click_task = asyncio.create_task((exact or partial).click())
 
-                        await navigation_task
                         await click_task
+                        await navigation_task
 
                         # response, _ = await asyncio.gather(navigation_task, click_task)
 

@@ -21,7 +21,7 @@ load_dotenv()
 
 model = OpenAI()
 model.timeout = 30
-timeout = 10000
+timeout = 12000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
@@ -369,10 +369,14 @@ async def main():
         cell_note = wks.get_note(cell_ref)
         print(f"cell_note: {cell_note}")
 
-        messages = [{
-            "role": "system",
-            "content": """
-            You are a website crawler. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
+        if not cell_note:
+            continue
+
+        messages = [
+            {
+                "role": "system",
+                "content": """
+            You are a spreadsheet analyst who can browse the web and answer user questions to fill in values for specific spreadsheet cells. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
 
             You can go to a specific URL by answering with the following JSON format:
             {"url": "url goes here"}
@@ -382,10 +386,12 @@ async def main():
 
             Once you are on a URL and you have found the answer to the user's question, you can answer in the following JSON format:
             {"value": "Specific value to the user's question", "comment":"Any additional information you want to give the user"}
+            Make sure the JSON works with python's json.loads method
 
             Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
-            """
-        }]
+            """,
+            }
+        ]
 
         messages.append(
             {
@@ -519,9 +525,16 @@ async def main():
                 url = parts[0]
                 continue
             else:
-                message_json = json.loads(message_text)
-                wks.update_acell(cell_ref, message_json['value'])
-                wks.update_note(cell_ref, cell_note + "\n\n" + message_json["comment"] + "\n---")
+                print(f"message_text: {message_text}")
+                try:
+                    message_json = json.loads(message_text)
+                    if "value" in message_json:
+                        wks.update_acell(cell_ref, message_json['value'])
+
+                    # if "comment" in message_json:
+                    #     wks.update_note(cell_ref, cell_note + "\n\n" + message_json["comment"] + "\n---")
+                except Exception as e:
+                    print(f"message didn't work {e}")
                 break
 
 # try:

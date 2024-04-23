@@ -1,11 +1,13 @@
+import asyncio
 # import os.path
+import pyppeteer
 import gspread
 import time
 # from google.auth.transport.requests import Request
 # from google.oauth2.credentials import Credentials
 # from google_auth_oauthlib.flow import InstalledAppFlow
 # from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+# from googleapiclient.errors import HttpError
 from openai import OpenAI
 from dotenv import load_dotenv
 import json
@@ -16,6 +18,7 @@ load_dotenv()
 
 model = OpenAI()
 model.timeout = 30
+timeout = 5000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
@@ -252,7 +255,76 @@ def get_active_cells(worksheet):
     return active_list
 
 
-def main():
+async def highlight_links(page):
+    await page.evaluate(
+        """() => {
+        document.querySelectorAll('[gpt-link-text]').forEach(e => {
+            e.removeAttribute("gpt-link-text");
+        });
+    }"""
+    )
+
+    elements = await page.querySelectorAll(
+        "a, button, input, textarea, [role=button], [role=treeitem]"
+    )
+
+    for element in elements:
+        await page.evaluate(
+            """(e) => {
+            function isElementVisible(el) {
+                if (!el) return false; // Element does not exist
+
+                function isStyleVisible(el) {
+                    const style = window.getComputedStyle(el);
+                    return style.width !== '0' &&
+                           style.height !== '0' &&
+                           style.opacity !== '0' &&
+                           style.display !== 'none' &&
+                           style.visibility !== 'hidden';
+                }
+
+                function isElementInViewport(el) {
+                    const rect = el.getBoundingClientRect();
+                    return (
+                    rect.top >= 0 &&
+                    rect.left >= 0 &&
+                    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+                    );
+                }
+
+                // Check if the element is visible style-wise
+                if (!isStyleVisible(el)) {
+                    return false;
+                }
+
+                // Traverse up the DOM and check if any ancestor element is hidden
+                let parent = el;
+                while (parent) {
+                    if (!isStyleVisible(parent)) {
+                    return false;
+                    }
+                    parent = parent.parentElement;
+                }
+
+                // Finally, check if the element is within the viewport
+                return isElementInViewport(el);
+            }
+
+            e.style.border = "1px solid red";
+
+            const position = e.getBoundingClientRect();
+
+            if( position.width > 5 && position.height > 5 && isElementVisible(e) ) {
+                const link_text = e.textContent.replace(/[^a-zA-Z0-9 ]/g, '');
+                e.setAttribute( "gpt-link-text", link_text );
+            }
+        }""",
+            element,
+        )
+
+
+async def main():
     # creds = None
     # # The file token.json stores the user's access and refresh tokens, and is
     # # created automatically when the authorization flow completes for the first
@@ -270,26 +342,85 @@ def main():
     #     with open("token.json", "w") as token:
     #         token.write(creds.to_json())
     gc = gspread.service_account(filename="./credentials.json")
+
+    browser = await pyppeteer.connect(
+        browserURL="http://localhost:9222", defaultViewport=None
+    )
+
+    page = await browser.newPage()
+
+    await page.setViewport(
+        {
+            "width": 1200,
+            "height": 1200,
+            "deviceScaleFactor": 1,
+        }
+    )
+
+    system_prompt = {
+        "role": "system",
+        "content": """
+        You are a website crawler. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
+
+        You can go to a specific URL by answering with the following JSON format:
+        {"url": "url goes here"}
+
+        You can click links on the website by referencing the text inside of the link/button, by answering in the following JSON format:
+        {"click": "Text in link"}
+
+        Once you are on a URL and you have found the answer to the user's question, you can answer with a regular message.
+
+        Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
+        """
+    }
+
+    url = "https://jira.atlassian.com/projects/JSWCLOUD/issues/JSWCLOUD-8726?filter=allopenissues"
+    screenshot_taken = False
+
     wks = gc.open("AI Doc").sheet1
 
     active_cells = get_active_cells(wks)
 
-    try:
-        # drive_service = build("drive", "v3", credentials=creds)
-        # sheets_service = build("sheets", "v4", credentials=creds)
-        for c in active_cells:
-            cell_note = wks.get_note(c[0])
+    for c in active_cells:
+        cell_ref = c[0]  # i.e: A1, D7, etc
+        cell_note = wks.get_note(cell_ref)
+        while True:
+            if url:
+                print("Crawling " + url)
+                await page.goto(url, {
+                    'waitUntil': "domcontentloaded",
+                    'timeout': timeout,
+                })
 
-            url, prompt = decipher_message(cell_note)
-            value, ai_comment = visionCrawl2(url, prompt)
-            wks.update_acell(c[0], value)
-            wks.update_note(c[0], cell_note + "\n\n" + ai_comment)
+                await asyncio.sleep(timeout / 10000)  # Convert milliseconds to seconds
 
-    except HttpError as err:
-        print(err)
+                # Assuming highlight_links is a defined function
+                await highlight_links(page)
+
+                await page.screenshot({
+                    'path': 'screenshot.jpg',
+                    'fullPage': True,
+                })
+
+                screenshot_taken = True
+                url = None
+
+    # try:
+    #     # drive_service = build("drive", "v3", credentials=creds)
+    #     # sheets_service = build("sheets", "v4", credentials=creds)
+    #     for c in active_cells:
+    #         cell_note = wks.get_note(c[0])
+
+    #         url, prompt = decipher_message(cell_note)
+    #         value, ai_comment = visionCrawl2(url, prompt)
+    #         wks.update_acell(c[0], value)
+    #         wks.update_note(c[0], cell_note + "\n\n" + ai_comment)
+
+    # except HttpError as err:
+    #     print(err)
 
 
 if __name__ == "__main__":
     while True:
-        main()
+        asyncio.get_event_loop().run_until_complete(main())
         time.sleep(10)  # Wait for 10 seconds

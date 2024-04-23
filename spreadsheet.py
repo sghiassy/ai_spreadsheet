@@ -1,3 +1,6 @@
+import re
+import openai
+import base64
 import asyncio
 # import os.path
 import pyppeteer
@@ -357,7 +360,7 @@ async def main():
         }
     )
 
-    system_prompt = {
+    messages = [{
         "role": "system",
         "content": """
         You are a website crawler. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
@@ -372,9 +375,16 @@ async def main():
 
         Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
         """
-    }
+    }]
 
-    url = "https://jira.atlassian.com/projects/JSWCLOUD/issues/JSWCLOUD-8726?filter=allopenissues"
+    messages.append(
+        {
+            "role": "user",
+            "content": "Give me the status of JRACLOUD-4812. You can start your search at https://jira.atlassian.com/browse/JRACLOUD-3821?filter=98153",
+        }
+    )
+
+    url = None
     screenshot_taken = False
 
     wks = gc.open("AI Doc").sheet1
@@ -405,19 +415,126 @@ async def main():
                 screenshot_taken = True
                 url = None
 
-    # try:
-    #     # drive_service = build("drive", "v3", credentials=creds)
-    #     # sheets_service = build("sheets", "v4", credentials=creds)
-    #     for c in active_cells:
-    #         cell_note = wks.get_note(c[0])
+            if screenshot_taken:
+                with open("screenshot.jpg", "rb") as image_file:
+                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
-    #         url, prompt = decipher_message(cell_note)
-    #         value, ai_comment = visionCrawl2(url, prompt)
-    #         wks.update_acell(c[0], value)
-    #         wks.update_note(c[0], cell_note + "\n\n" + ai_comment)
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": f"data:image/jpeg;base64,{base64_image}",
+                            },
+                            {
+                                "type": "text",
+                                "text": 'Here\'s the screenshot of the website you are on right now. You can click on links with {"click": "Link text"} or you can crawl to another URL if this one is incorrect. If you find the answer to the user\'s question, you can respond normally.',
+                            },
+                        ],
+                    }
+                )
 
-    # except HttpError as err:
-    #     print(err)
+                screenshot_taken = False
+
+            response = model.chat.completions.create(
+                model="gpt-4-vision-preview",
+                max_tokens=1024,
+                messages=messages,
+            )
+
+            message = response.choices[0].message
+            message_text = message.content
+
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": message_text,
+                }
+            )
+
+            print("GPT: " + message_text)
+
+            if '{"click": "' in message_text:
+                parts = message_text.split('{"click": "')
+                parts = parts[1].split('"}')
+                link_text = re.sub(r'[^a-zA-Z0-9 ]', '', parts[0])
+
+                print("Clicking on " + link_text)
+
+                try:
+                    elements = await page.querySelectorAll('[gpt-link-text]')
+
+                    partial = None
+                    exact = None
+
+                    for element in elements:
+                        attribute_value = await page.evaluate('(el) => el.getAttribute("gpt-link-text")', element)
+
+                        if link_text in attribute_value:
+                            partial = element
+
+                        if attribute_value == link_text:
+                            exact = element
+
+                    if exact or partial:
+                        navigation_task = asyncio.create_task(page.waitForNavigation(waitUntil='domcontentloaded'))
+                        click_task = asyncio.create_task((exact or partial).click())
+
+                        response, _ = await asyncio.gather(navigation_task, click_task)
+
+                        await asyncio.wait([
+                            pyppeteer.waitForEvent(page, 'load'),
+                            asyncio.sleep(timeout)
+                        ], return_when=asyncio.FIRST_COMPLETED)
+
+                        await highlight_links(page)
+
+                        await page.screenshot({
+                            'path': "screenshot.jpg",
+                            'quality': 100,
+                            'fullPage': True
+                        })
+
+                        screenshot_taken = True
+                    else:
+                        raise Exception("Can't find link")
+                except Exception as error:
+                    print("ERROR: Clicking failed", error)
+
+                    messages.append({
+                        "role": "user",
+                        "content": "ERROR: I was unable to click that element",
+                    })
+
+                continue
+            elif '{"url": "' in message_text:
+                parts = message_text.split('{"url": "')
+                parts = parts[1].split('"}')
+                url = parts[0]
+                continue
+
+            prompt = input("You: ")
+            print()
+
+            messages.append({
+                "role": "user",
+                "content": prompt,
+            })
+
+# try:
+#     # drive_service = build("drive", "v3", credentials=creds)
+#     # sheets_service = build("sheets", "v4", credentials=creds)
+#     for c in active_cells:
+#         cell_note = wks.get_note(c[0])
+
+#         url, prompt = decipher_message(cell_note)
+#         value, ai_comment = visionCrawl2(url, prompt)
+#         wks.update_acell(c[0], value)
+#         wks.update_note(c[0], cell_note + "\n\n" + ai_comment)
+
+# except HttpError as err:
+#     print(err)
 
 
 if __name__ == "__main__":

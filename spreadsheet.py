@@ -21,7 +21,7 @@ load_dotenv()
 
 model = OpenAI()
 model.timeout = 30
-timeout = 5000
+timeout = 10000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
@@ -360,33 +360,6 @@ async def main():
         }
     )
 
-    messages = [{
-        "role": "system",
-        "content": """
-        You are a website crawler. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
-
-        You can go to a specific URL by answering with the following JSON format:
-        {"url": "url goes here"}
-
-        You can click links on the website by referencing the text inside of the link/button, by answering in the following JSON format:
-        {"click": "Text in link"}
-
-        Once you are on a URL and you have found the answer to the user's question, you can answer with a regular message.
-
-        Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
-        """
-    }]
-
-    messages.append(
-        {
-            "role": "user",
-            "content": "Give me the status of JRACLOUD-4812. You can start your search at https://jira.atlassian.com/browse/JRACLOUD-3821?filter=98153",
-        }
-    )
-
-    url = None
-    screenshot_taken = False
-
     wks = gc.open("AI Doc").sheet1
 
     active_cells = get_active_cells(wks)
@@ -394,6 +367,36 @@ async def main():
     for c in active_cells:
         cell_ref = c[0]  # i.e: A1, D7, etc
         cell_note = wks.get_note(cell_ref)
+        print(f"cell_note: {cell_note}")
+
+        messages = [{
+            "role": "system",
+            "content": """
+            You are a website crawler. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
+
+            You can go to a specific URL by answering with the following JSON format:
+            {"url": "url goes here"}
+
+            You can click links on the website by referencing the text inside of the link/button, by answering in the following JSON format:
+            {"click": "Text in link"}
+
+            Once you are on a URL and you have found the answer to the user's question, you can answer in the following JSON format:
+            {"value": "Specific value to the user's question", "comment":"Any additional information you want to give the user"}
+
+            Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
+            """
+        }]
+
+        messages.append(
+            {
+                "role": "user",
+                "content": cell_note,
+            }
+        )
+
+        url = None
+        screenshot_taken = False
+
         while True:
             if url:
                 print("Crawling " + url)
@@ -481,12 +484,14 @@ async def main():
                         navigation_task = asyncio.create_task(page.waitForNavigation(waitUntil='domcontentloaded'))
                         click_task = asyncio.create_task((exact or partial).click())
 
-                        response, _ = await asyncio.gather(navigation_task, click_task)
+                        await navigation_task
+                        await click_task
 
-                        await asyncio.wait([
-                            pyppeteer.waitForEvent(page, 'load'),
-                            asyncio.sleep(timeout)
-                        ], return_when=asyncio.FIRST_COMPLETED)
+                        # response, _ = await asyncio.gather(navigation_task, click_task)
+
+                        await asyncio.sleep(
+                            timeout / 10000
+                        )  # Convert milliseconds to seconds
 
                         await highlight_links(page)
 
@@ -513,14 +518,11 @@ async def main():
                 parts = parts[1].split('"}')
                 url = parts[0]
                 continue
-
-            prompt = input("You: ")
-            print()
-
-            messages.append({
-                "role": "user",
-                "content": prompt,
-            })
+            else:
+                message_json = json.loads(message_text)
+                wks.update_acell(cell_ref, message_json['value'])
+                wks.update_note(cell_ref, cell_note + "\n\n" + message_json["comment"] + "\n---")
+                break
 
 # try:
 #     # drive_service = build("drive", "v3", credentials=creds)

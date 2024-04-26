@@ -9,6 +9,22 @@ SCOPES = [
 ]
 
 
+class Cell:
+    def __init__(self, position, contents, note, worksheet):
+        self.position = position
+        self.contents = contents
+        self.note = note
+        self.worksheet = worksheet
+
+    def get_note(self):
+        self.note = self.worksheet.get_note(self.position)
+        return self.note
+
+    def update(self, contents):
+        self.contents
+        self.worksheet.update_acell(self.position, contents)
+
+
 class GoogleSheet(object):
     def __init__(self):
         self.gc = gspread.service_account(filename="./credentials.json")
@@ -17,18 +33,39 @@ class GoogleSheet(object):
     def load_worksheet(self, sheet_name):
         self.wks = self.gc.open("AI Doc").worksheet(sheet_name)
 
-    def get_active_cells(self):
+    def get_active_cells_with_notes(self):
+        """
+        Retrieve a list of worksheet cells that have a note attached to them
+        and the content of the cell is '-'
+        """
+        active_cells: list[Cell] = []
+        cells = self.get_active_cells()
+        for cell in cells:
+            cell_note = cell.get_note()
+            if not cell_note:
+                continue
+
+            if not cell.contents == "-":
+                continue
+
+            active_cells.append(cell)
+        return active_cells
+
+    def get_active_cells(self) -> list[Cell]:
+        """
+        Returns a list of cells with a reference to each
+        cell's positional encoding (i.e: A1, D7, ZZ8, etc)
+        """
+
         list_of_lists = self.wks.get_all_values()
         active_list = []
         for i, row in enumerate(list_of_lists, start=1):  # Rows are 1-indexed
             for j, cell in enumerate(row, start=1):  # Columns are 1-indexed
                 if cell:  # If the cell is not blank
                     column_letter = chr(j + 64)  # Convert column number to letter
-                    active_list.append((f"{column_letter}{i}", cell))
+                    c = Cell(f"{column_letter}{i}", cell, None, self.wks)
+                    active_list.append(c)
         return active_list
-
-    def get_note(self, cell_ref):
-        return self.wks.get_note(cell_ref)
 
 
 # #### Unusued functions

@@ -15,21 +15,10 @@ async def main():
 
     sheet = GoogleSheet()
     sheet.load_worksheet('Sheet6')
-    active_cells = sheet.get_active_cells()
+    active_cells = sheet.get_active_cells_with_notes()
 
     for cell in active_cells:
-        cell_ref = cell[0]  # i.e: A1, D7, etc
-        cell_text = cell[1]
-        cell_note = sheet.get_note(cell_ref)
-        print(f"cell_note: {cell_note}")
-
-        if not cell_note:
-            continue
-
-        if not cell_text == "-":
-            continue
-
-        ai.append(cell_note)
+        ai.append(cell.note)
 
         url = None
         screenshot_taken = False
@@ -75,7 +64,7 @@ async def main():
                 url = message_json['url']
                 continue
             elif 'value' in message_json:
-                wks.update_acell(cell_ref, message_json['value'])
+                cell.update(message_json["value"])
                 continue
             else:
                 print("ERROR 65rfd: Unknown entries in JSON")

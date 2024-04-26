@@ -1,15 +1,17 @@
 import asyncio
 import src.browser
 from src.google_sheet import GoogleSheet
+from src.mongodb import MongoDB
 import src.ai as ai
 import time
-from dotenv import load_dotenv
 import json
 
-load_dotenv()
+session = "41d3b4b5-6c9d-4f55-baa0-f4539b75ccee"
 
 
 async def main():
+
+    db = MongoDB()
 
     browser = await src.browser.init_browser()
 

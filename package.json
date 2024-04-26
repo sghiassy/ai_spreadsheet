@@ -6,6 +6,7 @@
   "scripts": {
     "copy_cookies": "cp -R '/Users/sghiassy/Library/Application Support/Google/Chrome/Default' '/Users/sghiassy/Library/Application Support/Google/Chrome Canary'",
     "delete_cookies": "rm -rf '/Users/sghiassy/Library/Application Support/Google/Chrome Canary/Default'",
+    "freeze": "pip freeze > requirements.txt",
     "open:sheet": "open 'https://docs.google.com/spreadsheets/d/18_0zVG1l3-HIhPwvSuONZxqwrjOCRN2JYhiiByi06_s/edit#gid=1099111876'",
     "reset_cookies": "yarn delete_cookies; yarn copy_cookies",
     "screenshot": "node screenshot.js && open screenshot.jpg",

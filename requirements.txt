@@ -5,6 +5,7 @@ cachetools==5.3.3
 certifi==2024.2.2
 charset-normalizer==3.3.2
 distro==1.9.0
+dnspython==2.6.1
 google-api-core==2.18.0
 google-api-python-client==2.126.0
 google-auth==2.29.0
@@ -29,6 +30,7 @@ pyasn1_modules==0.4.0
 pydantic==2.7.0
 pydantic_core==2.18.1
 pyee==11.1.0
+pymongo==4.7.0
 pyparsing==3.1.2
 pyppeteer==2.0.0
 python-dotenv==1.0.1

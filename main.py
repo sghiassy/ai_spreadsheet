@@ -1,6 +1,6 @@
 import asyncio
 import src.browser
-import src.google_sheet as google_sheet
+from src.google_sheet import GoogleSheet
 import src.ai as ai
 import time
 from dotenv import load_dotenv
@@ -13,14 +13,14 @@ async def main():
 
     browser = await src.browser.init_browser()
 
-    wks = google_sheet.get_worksheet('Sheet6')
-
-    active_cells = google_sheet.get_active_cells(wks)
+    sheet = GoogleSheet()
+    sheet.load_worksheet('Sheet6')
+    active_cells = sheet.get_active_cells()
 
     for cell in active_cells:
         cell_ref = cell[0]  # i.e: A1, D7, etc
         cell_text = cell[1]
-        cell_note = wks.get_note(cell_ref)
+        cell_note = sheet.get_note(cell_ref)
         print(f"cell_note: {cell_note}")
 
         if not cell_note:

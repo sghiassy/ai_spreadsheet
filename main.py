@@ -3,20 +3,12 @@ import openai
 import base64
 import asyncio
 import src.browser
-# import os.path
-
-import gspread
+import src.google_sheet as google_sheet
 import time
-# from google.auth.transport.requests import Request
-# from google.oauth2.credentials import Credentials
-# from google_auth_oauthlib.flow import InstalledAppFlow
-# from googleapiclient.discovery import build
-# from googleapiclient.errors import HttpError
 from openai import OpenAI
 from dotenv import load_dotenv
 import json
 import requests
-from vison_scraper import visionCrawl2
 
 load_dotenv()
 
@@ -26,12 +18,7 @@ timeout = 14000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = [
-    "https://www.googleapis.com/auth/documents",
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/drive.activity.readonly",
-]
+
 
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = "18_0zVG1l3-HIhPwvSuONZxqwrjOCRN2JYhiiByi06_s"
@@ -232,33 +219,6 @@ def create_note(sheets_service):
     return result
 
 
-# def get_note(service):
-#     request = service.spreadsheets().get(
-#         spreadsheetId=SPREADSHEET_ID, ranges=RANGE, includeGridData=True
-#     )
-#     response = request.execute()
-
-#     # Get the notes (comments) from the cell
-#     cell_data = response['sheets'][0]['data'][0]['rowData'][0]['values'][0]
-#     if 'note' in cell_data:
-#         # print(cell_data['note'])
-#         return cell_data['note']
-#     else:
-#         return ''
-#         # print('No comments in cell D7')
-
-
-def get_active_cells(worksheet):
-    list_of_lists = worksheet.get_all_values()
-    active_list = []
-    for i, row in enumerate(list_of_lists, start=1):  # Rows are 1-indexed
-        for j, cell in enumerate(row, start=1):  # Columns are 1-indexed
-            if cell:  # If the cell is not blank
-                column_letter = chr(j + 64)  # Convert column number to letter
-                active_list.append((f"{column_letter}{i}", cell))
-    return active_list
-
-
 async def highlight_links(page):
     await page.evaluate(
         """() => {
@@ -329,33 +289,16 @@ async def highlight_links(page):
 
 
 async def main():
-    # creds = None
-    # # The file token.json stores the user's access and refresh tokens, and is
-    # # created automatically when the authorization flow completes for the first
-    # # time.
-    # if os.path.exists("token.json"):
-    #     creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    # # If there are no (valid) credentials available, let the user log in.
-    # if not creds or not creds.valid:
-    #     if creds and creds.expired and creds.refresh_token:
-    #         creds.refresh(Request())
-    #     else:
-    #         flow = InstalledAppFlow.from_client_secrets_file("oauth.json", SCOPES)
-    #         creds = flow.run_local_server(port=0)
-    #     # Save the credentials for the next run
-    #     with open("token.json", "w") as token:
-    #         token.write(creds.to_json())
-    gc = gspread.service_account(filename="./credentials.json")
 
     page = await src.browser.init_browser()
 
-    wks = gc.open("AI Doc").sheet1
+    wks = google_sheet.get_worksheet('Sheet6')
 
-    active_cells = get_active_cells(wks)
+    active_cells = google_sheet.get_active_cells(wks)
 
-    for c in active_cells:
-        cell_ref = c[0]  # i.e: A1, D7, etc
-        cell_text = c[1]
+    for cell in active_cells:
+        cell_ref = cell[0]  # i.e: A1, D7, etc
+        cell_text = cell[1]
         cell_note = wks.get_note(cell_ref)
         print(f"cell_note: {cell_note}")
 

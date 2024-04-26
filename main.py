@@ -1,6 +1,5 @@
 import re
 import src.ai as ai
-import base64
 import asyncio
 import src.browser
 import src.google_sheet as google_sheet
@@ -338,14 +337,12 @@ async def main():
 
                 screenshot_taken = False
 
-            message_text = await ai.get_response()
+            message_json = await ai.get_json_response()
 
-            print("GPT: " + message_text)
+            print("GPT: " + json.dumps(message_json))
 
-            if '{"click": "' in message_text:
-                parts = message_text.split('{"click": "')
-                parts = parts[1].split('"}')
-                link_text = re.sub(r'[^a-zA-Z0-9 ]', '', parts[0])
+            if 'click' in message_json:
+                link_text = message_json['click']
 
                 print("Clicking on " + link_text)
 
@@ -397,23 +394,14 @@ async def main():
                     })
 
                 continue
-            elif '{"url": "' in message_text:
-                parts = message_text.split('{"url": "')
-                parts = parts[1].split('"}')
-                url = parts[0]
+            elif 'url' in message_json:
+                url = message_json['url']
+                continue
+            elif 'value' in message_json:
+                wks.update_acell(cell_ref, message_json['value'])
                 continue
             else:
-                print(f"message_text: {message_text}")
-                try:
-                    message_json = json.loads(message_text)
-                    if "value" in message_json:
-                        wks.update_acell(cell_ref, message_json['value'])
-
-                    # if "comment" in message_json:
-                    #     wks.update_note(cell_ref, cell_note + "\n\n" + message_json["comment"] + "\n---")
-                except Exception as e:
-                    print(f"message didn't work {e}")
-                break
+                print("ERROR 65rfd: Unknown entries in JSON")
 
 
 if __name__ == "__main__":

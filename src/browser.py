@@ -1,4 +1,5 @@
 import pyppeteer
+import base64
 
 
 async def init_browser():
@@ -17,3 +18,17 @@ async def init_browser():
     )
 
     return page
+
+
+async def take_screenshot(page):
+    await page.screenshot(
+        {
+            "path": "screenshot.jpg",
+            "fullPage": False,
+        }
+    )
+
+    with open("screenshot.jpg", "rb") as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+    return base64_image

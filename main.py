@@ -325,21 +325,15 @@ async def main():
                 # Assuming highlight_links is a defined function
                 await highlight_links(page)
 
-                await page.screenshot({
-                    'path': 'screenshot.jpg',
-                    'fullPage': False,
-                })
-
                 screenshot_taken = True
                 url = None
 
             if screenshot_taken:
-                with open("screenshot.jpg", "rb") as image_file:
-                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+                screenshot = await src.browser.take_screenshot(page)
 
                 ai.append_image(
                     'Here\'s the screenshot of the website you are on right now. You can click on links with {"click": "Link text"} or you can crawl to another URL if this one is incorrect. If you find the answer to the user\'s question, you can respond normally.',
-                    base64_image,
+                    screenshot,
                 )
 
                 screenshot_taken = False

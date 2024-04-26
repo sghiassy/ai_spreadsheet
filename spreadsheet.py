@@ -2,8 +2,9 @@ import re
 import openai
 import base64
 import asyncio
+import src.browser
 # import os.path
-import pyppeteer
+
 import gspread
 import time
 # from google.auth.transport.requests import Request
@@ -346,19 +347,7 @@ async def main():
     #         token.write(creds.to_json())
     gc = gspread.service_account(filename="./credentials.json")
 
-    browser = await pyppeteer.connect(
-        browserURL="http://localhost:9222", defaultViewport=None
-    )
-
-    page = await browser.newPage()
-
-    await page.setViewport(
-        {
-            "width": 1200,
-            "height": 1200,
-            "deviceScaleFactor": 1,
-        }
-    )
+    page = await src.browser.init_browser()
 
     wks = gc.open("AI Doc").sheet1
 
@@ -366,10 +355,14 @@ async def main():
 
     for c in active_cells:
         cell_ref = c[0]  # i.e: A1, D7, etc
+        cell_text = c[1]
         cell_note = wks.get_note(cell_ref)
         print(f"cell_note: {cell_note}")
 
         if not cell_note:
+            continue
+
+        if not cell_text == "-":
             continue
 
         messages = [
@@ -388,7 +381,9 @@ async def main():
             {"value": "Specific value to the user's question", "comment":"Any additional information you want to give the user"}
             Make sure the JSON works with python's json.loads method
 
-            Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries. If the user provides a direct URL, go to that one. Do not make up links
+            Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries.
+            If the user wants information about a noun use wikipedia at 'https://en.wikipedia.org/wiki/Main_Page'
+            If the user provides a direct URL, go to that one. Do not make up links
             """,
             }
         ]
@@ -536,20 +531,6 @@ async def main():
                 except Exception as e:
                     print(f"message didn't work {e}")
                 break
-
-# try:
-#     # drive_service = build("drive", "v3", credentials=creds)
-#     # sheets_service = build("sheets", "v4", credentials=creds)
-#     for c in active_cells:
-#         cell_note = wks.get_note(c[0])
-
-#         url, prompt = decipher_message(cell_note)
-#         value, ai_comment = visionCrawl2(url, prompt)
-#         wks.update_acell(c[0], value)
-#         wks.update_note(c[0], cell_note + "\n\n" + ai_comment)
-
-# except HttpError as err:
-#     print(err)
 
 
 if __name__ == "__main__":

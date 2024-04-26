@@ -277,12 +277,15 @@ async def main():
 
                 print("Clicking on " + link_text)
 
-                await src.browser.click_link(page, link_text)
+                try:
+                    await src.browser.click_link(page, link_text)
+                    await src.browser.take_screenshot(page)
 
-                await src.browser.take_screenshot(page)
-
-                screenshot_taken = True
-
+                    screenshot_taken = True
+                except Exception as e:
+                    ai.append(
+                        f"ERROR: I was unable to click that element. Here's the exception that occured {e}",
+                    )
                 continue
             elif 'url' in message_json:
                 url = message_json['url']

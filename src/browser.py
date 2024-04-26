@@ -107,43 +107,34 @@ async def take_screenshot(page):
 
 
 async def click_link(page, link_text):
-    try:
-        elements = await page.querySelectorAll('[gpt-link-text]')
+    elements = await page.querySelectorAll('[gpt-link-text]')
 
-        partial = None
-        exact = None
+    partial = None
+    exact = None
 
-        for element in elements:
-            attribute_value = await page.evaluate('(el) => el.getAttribute("gpt-link-text")', element)
+    for element in elements:
+        attribute_value = await page.evaluate('(el) => el.getAttribute("gpt-link-text")', element)
 
-            if link_text in attribute_value:
-                partial = element
+        if link_text in attribute_value:
+            partial = element
 
-            if attribute_value == link_text:
-                exact = element
+        if attribute_value == link_text:
+            exact = element
 
-        if exact or partial:
-            navigation_task = asyncio.create_task(page.waitForNavigation(waitUntil='domcontentloaded'))
-            click_task = asyncio.create_task((exact or partial).click())
+    if exact or partial:
+        navigation_task = asyncio.create_task(page.waitForNavigation(waitUntil='domcontentloaded'))
+        click_task = asyncio.create_task((exact or partial).click())
 
-            await click_task
-            await navigation_task
+        await click_task
+        await navigation_task
 
-            # response, _ = await asyncio.gather(navigation_task, click_task)
+        # response, _ = await asyncio.gather(navigation_task, click_task)
 
-            await asyncio.sleep(
-                timeout / 10000
-            )  # Convert milliseconds to seconds
+        await asyncio.sleep(
+            timeout / 10000
+        )  # Convert milliseconds to seconds
 
-            await highlight_links(page)
+        await highlight_links(page)
+    else:
+        raise Exception("Can't find link")
 
-
-        else:
-            raise Exception("Can't find link")
-    except Exception as error:
-        print("ERROR: Clicking failed", error)
-
-        ai.messages.append({
-            "role": "user",
-            "content": "ERROR: I was unable to click that element",
-        })

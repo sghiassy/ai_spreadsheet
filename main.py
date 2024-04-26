@@ -1,19 +1,18 @@
 import re
-import openai
+import src.ai as ai
 import base64
 import asyncio
 import src.browser
 import src.google_sheet as google_sheet
 import time
-from openai import OpenAI
+
 from dotenv import load_dotenv
 import json
 import requests
 
 load_dotenv()
 
-model = OpenAI()
-model.timeout = 30
+
 timeout = 14000
 COMMENT_FIELDS = "id, anchor, content, modifiedTime, quotedFileContent, author(displayName), replies(id,content,modifiedTime, author(displayName)), createdTime, htmlContent, kind, deleted, resolved"
 
@@ -308,35 +307,7 @@ async def main():
         if not cell_text == "-":
             continue
 
-        messages = [
-            {
-                "role": "system",
-                "content": """
-            You are a spreadsheet analyst who can browse the web and answer user questions to fill in values for specific spreadsheet cells. You will be given instructions on what to do by browsing. You are connected to a web browser and you will be given the screenshot of the website you are on. The links on the website will be highlighted in red in the screenshot. Always read what is in the screenshot. Don't guess link names.
-
-            You can go to a specific URL by answering with the following JSON format:
-            {"url": "url goes here"}
-
-            You can click links on the website by referencing the text inside of the link/button, by answering in the following JSON format:
-            {"click": "Text in link"}
-
-            Once you are on a URL and you have found the answer to the user's question, you can answer in the following JSON format:
-            {"value": "Specific value to the user's question", "comment":"Any additional information you want to give the user"}
-            Make sure the JSON works with python's json.loads method
-
-            Use google search by set a sub-page like 'https://google.com/search?q=search' if applicable. Prefer to use Google for simple queries.
-            If the user wants information about a noun use wikipedia at 'https://en.wikipedia.org/wiki/Main_Page'
-            If the user provides a direct URL, go to that one. Do not make up links
-            """,
-            }
-        ]
-
-        messages.append(
-            {
-                "role": "user",
-                "content": cell_note,
-            }
-        )
+        ai.append(cell_note)
 
         url = None
         screenshot_taken = False
@@ -366,39 +337,14 @@ async def main():
                 with open("screenshot.jpg", "rb") as image_file:
                     base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": f"data:image/jpeg;base64,{base64_image}",
-                            },
-                            {
-                                "type": "text",
-                                "text": 'Here\'s the screenshot of the website you are on right now. You can click on links with {"click": "Link text"} or you can crawl to another URL if this one is incorrect. If you find the answer to the user\'s question, you can respond normally.',
-                            },
-                        ],
-                    }
+                ai.append_image(
+                    'Here\'s the screenshot of the website you are on right now. You can click on links with {"click": "Link text"} or you can crawl to another URL if this one is incorrect. If you find the answer to the user\'s question, you can respond normally.',
+                    base64_image,
                 )
 
                 screenshot_taken = False
 
-            response = model.chat.completions.create(
-                model="gpt-4-vision-preview",
-                max_tokens=1024,
-                messages=messages,
-            )
-
-            message = response.choices[0].message
-            message_text = message.content
-
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": message_text,
-                }
-            )
+            message_text = await ai.get_response()
 
             print("GPT: " + message_text)
 
@@ -451,7 +397,7 @@ async def main():
                 except Exception as error:
                     print("ERROR: Clicking failed", error)
 
-                    messages.append({
+                    ai.messages.append({
                         "role": "user",
                         "content": "ERROR: I was unable to click that element",
                     })
